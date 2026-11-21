@@ -1547,6 +1547,14 @@ mq.addEventListener?.('change', restyleAll);
 new MutationObserver(restyleAll).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
 /* ---------- Boot ---------- */
+// Deep link: ?site=lat,lng&r=metres opens the tool on that site
+try {
+  const q = new URLSearchParams(location.search);
+  const ll = (q.get('site') || '').split(',').map(Number);
+  if (ll.length === 2 && ll.every(Number.isFinite)) state.site = [ll[1], ll[0]];
+  const rr = Math.round(Number(q.get('r')) / 10) * 10;
+  if (rr) state.r = Math.min(1500, Math.max(50, rr));
+} catch (e) {}
 if (matchMedia('(max-width: 760px)').matches) $('legend').open = false;
 syncRadiusUI(); renderLegend();
 Promise.all([
