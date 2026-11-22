@@ -14,6 +14,7 @@ The site panel shows the zone and the OP designation side by side and flags a mi
 ## Features
 
 - Click anywhere to place a site, or jump to an example site.
+- Assess many sites at once by uploading a CSV, zipped Shapefile or GeoJSON (see below).
 - Open the tool on a specific site from a link: `?site=43.672,-79.466&r=300` (latitude, longitude, radius in metres).
 - Radius from 50 to 1,500 m, with presets for 120 m (Planning Act notice), 400 m (5-minute walk) and 800 m (MTSA / 10-minute walk).
 - Area in hectares and share of the radius for each land use category. Streets, rail and water are reported separately because they carry no designation.
@@ -31,6 +32,22 @@ python3 -m http.server 8000
 ```
 
 Then open http://localhost:8000. The page also works on GitHub Pages: enable Pages for the `main` branch, root folder.
+
+## Assessing multiple sites
+
+Under **Multiple sites**, choose **Upload sites** (or drop a file on that section). The tool accepts up to 1,000 sites in one of these formats:
+
+- **CSV** with `latitude` and `longitude` columns (`lat`/`lon`/`lng` also work), or `x` and `y` in WGS84, MTM zone 10 or UTM zone 17N. Comma, semicolon and tab delimiters all work, and swapped latitude and longitude are corrected. **Download a CSV template** gives an example.
+- **Zipped Shapefile or GeoJSON** of points or polygons. Polygons are treated as parcels: the study area is the parcel buffered outward by the radius, and the site's own designation is whichever one covers most of the parcel.
+
+Optional columns:
+
+- a name column (`name`, `site_name`, `address`, `parcel_id` and similar) labels each site;
+- a `radius_m` column gives that site its own radius (25 to 3,000 m). Other sites use the study radius in the panel and are re-measured when it changes.
+
+Every site is measured on both maps. The results table lists each site's zone and OP designation, flags where they differ, and shows the share of surrounding designated land that conflicts with the site and the distance to the nearest conflicting use. Click a column heading to sort, or a row (or its marker on the map) to open that site's full analysis. **Download results (CSV)** exports all of it, including compatible / transition / conflict shares for both maps. Rows that can't be used, such as missing coordinates or points outside Toronto, are listed as skipped.
+
+The file is read in your browser and is not uploaded anywhere.
 
 ## Using your own Official Plan layer
 

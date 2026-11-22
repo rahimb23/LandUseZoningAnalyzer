@@ -814,7 +814,38 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-weight: 600; cursor: pointer; font-size: .86rem; }
 .btn.ghost { background: transparent; color: var(--accent); }
-.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+/* Batch (multiple sites) */
+.batch-drop.over { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: 8px; }
+.batch-progress { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.batch-progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s; }
+.batch-sum { font-size: .82rem; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.batch-sum b { font-family: var(--f-mono); font-weight: 500; }
+.batch-skip { font-size: .78rem; color: var(--muted); }
+.batch-skip summary { cursor: pointer; }
+.batch-skip ul { margin: 4px 0 0; padding-left: 18px; max-height: 120px; overflow-y: auto; }
+.tbl-wrap { overflow: auto; max-height: 360px; border: 1px solid var(--line); border-radius: 8px; }
+.btbl { width: 100%; border-collapse: collapse; font-size: .78rem; }
+.btbl th { position: sticky; top: 0; z-index: 1; background: var(--bg); text-align: left; font-weight: 600; color: var(--muted); padding: 7px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.btbl th button { all: unset; cursor: pointer; }
+.btbl th button:focus-visible { outline: 2px solid var(--accent); }
+.btbl th[aria-sort] button::after { content: " ↓"; }
+.btbl th[aria-sort=ascending] button::after { content: " ↑"; }
+.btbl td { padding: 7px 6px; border-top: 1px solid var(--line); vertical-align: top; }
+.btbl tbody tr { cursor: pointer; }
+.btbl tbody tr:hover td { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.btbl tbody tr.sel td { background: var(--accent-soft); }
+.btbl .num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.btbl .nm { min-width: 84px; max-width: 150px; overflow-wrap: break-word; font-weight: 500; }
+.btbl .two { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.btbl .lu { display: flex; gap: 5px; align-items: flex-start; }
+.btbl .lu .sw { margin-top: 2px; width: 10px; height: 10px; }
+.pill { display: inline-block; font-weight: 600; font-size: .72rem; padding: 1px 7px; border-radius: 999px; font-family: var(--f-mono); }
+.pill.X { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+.pill.T { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.pill.C { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.pill.N { color: var(--muted); border: 1px dashed var(--line); }
+.mm { color: var(--warn); font-weight: 700; }
 .foot { font-size: .74rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 6px; }
 .foot p { margin: 0; }
 
@@ -872,6 +903,30 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
       <div class="eyebrow" id="h-site">Subject site <span class="aside mono" id="siteCoord"></span></div>
       <div class="site" id="siteCard"></div>
       <select id="preset" aria-label="Jump to an example site"></select>
+    </section>
+
+    <section class="sec batch-drop" id="batchSec" aria-labelledby="h-batch">
+      <div class="eyebrow" id="h-batch">Multiple sites <span class="aside" id="batchMeta"></span></div>
+      <div id="batchIntro">
+        <p class="hint">Upload a CSV with latitude and longitude columns, or a zipped Shapefile or GeoJSON of points or parcels. Every site is measured on both maps at the study radius below.</p>
+      </div>
+      <div class="btns">
+        <button class="btn ghost" id="batchPick" type="button">Upload sites</button>
+        <button class="linkbtn" id="batchTemplate" type="button">Download a CSV template</button>
+      </div>
+      <input type="file" id="batchInput" accept=".csv,.txt,.zip,.geojson,.json" hidden>
+      <p class="err" id="batchErr" hidden></p>
+      <div id="batchBody" class="sec" hidden>
+        <div class="batch-progress" id="batchProgress" hidden><i></i></div>
+        <div class="batch-sum" id="batchSum"></div>
+        <details class="batch-skip" id="batchSkip" hidden><summary></summary><ul></ul></details>
+        <div class="tbl-wrap"><table class="btbl" id="batchTbl"></table></div>
+        <p class="hint" id="batchHint"></p>
+        <div class="btns">
+          <button class="btn" id="batchCsv" type="button">Download results (CSV)</button>
+          <button class="btn ghost" id="batchClear" type="button">Clear sites</button>
+        </div>
+      </div>
     </section>
 
     <section class="sec" aria-labelledby="h-rad">
@@ -1071,7 +1126,8 @@ const RADII = [
 ];
 const state = {
   scheme: 'zoning', site: [-79.39836, 43.70675], r: 500, evalFam: null,
-  data: { zoning: null, op: null }, opField: null, opName: null, opSource: null, opLoading: false, result: null
+  data: { zoning: null, op: null }, opField: null, opName: null, opSource: null, opLoading: false, opPromise: null, result: null,
+  siteGeom: null, siteName: null, batch: null
 };
 
 /* ---------- Helpers ---------- */
@@ -1129,22 +1185,33 @@ function lookupNear(d, pt, maxM = 60) {
 }
 
 /* ---------- Analysis ---------- */
-function analyze(schemeId) {
+// A site is a point (circle study area) or a parcel polygon (study area = parcel buffered by the radius, minus the parcel).
+function flatLines(f) { const out = []; turf.flattenEach(turf.polygonToLine(f), l => out.push(l)); return out; }
+function studyArea(site, r, poly) {
+  if (!poly) { const c = turf.circle(site, r / 1000, { steps: 96, units: 'kilometers' }); return { study: c, outer: c }; }
+  const outer = turf.buffer(poly, r, { units: 'meters', steps: 16 });
+  let study = outer;
+  try { study = turf.difference(outer, poly) || outer; } catch (e) {}
+  return { study, outer };
+}
+function reach(poly, site) { let m = 0; turf.coordEach(poly, c => m = Math.max(m, metersBetween(site, c))); return m; }
+function analyze(schemeId, opt = {}) {
   const d = state.data[schemeId]; if (!d) return null;
-  const site = state.site, r = state.r;
-  const circle = turf.circle(site, r / 1000, { steps: 96, units: 'kilometers' });
-  const cb = turf.bbox(circle);
-  const circleArea = turf.area(circle);
+  const site = opt.site || state.site, r = opt.r || state.r;
+  const poly = opt.poly !== undefined ? opt.poly : state.siteGeom;
+  const { study, outer } = studyArea(site, r, poly);
+  const cb = turf.bbox(outer);
+  const circleArea = turf.area(study);
   const pieces = [], byCat = {};
   let mapped = 0;
   for (const it of d.items) {
     const b = it.bb;
     if (b[2] < cb[0] || b[0] > cb[2] || b[3] < cb[1] || b[1] > cb[3]) continue;
-    const inside = [[b[0],b[1]],[b[0],b[3]],[b[2],b[1]],[b[2],b[3]]].every(c => metersBetween(site, c) < r * 0.995);
+    const inside = !poly && [[b[0],b[1]],[b[0],b[3]],[b[2],b[1]],[b[2],b[3]]].every(c => metersBetween(site, c) < r * 0.995);
     let piece, area;
     if (inside) { piece = it.f; area = it.area ?? (it.area = turf.area(it.f)); }
     else {
-      try { piece = turf.intersect(it.f, circle); } catch (e) { piece = null; }
+      try { piece = turf.intersect(it.f, study); } catch (e) { piece = null; }
       if (!piece) continue;
       area = turf.area(piece);
     }
@@ -1156,10 +1223,42 @@ function analyze(schemeId) {
     c.area += area; c.n++;
     if (it.cat === 'other' || it.cat === null) c.raw.add(SCHEMES[schemeId].describe(it.f.properties || {}));
   }
-  return { circle, circleArea, mapped, unmapped: Math.max(0, circleArea - mapped), pieces, byCat, compass: compassSample(pieces) };
+  return { circle: study, outer, poly, site, r, circleArea, mapped, unmapped: Math.max(0, circleArea - mapped), pieces, byCat,
+    compass: opt.compass === false ? null : compassSample(pieces, site, poly ? r + reach(poly, site) : r) };
 }
-function compassSample(pieces) {
-  const site = state.site, r = state.r;
+// Share of designated land that is compatible / transition / conflict, plus the nearest conflicting piece.
+function rate(schemeId, res, fam) {
+  const totals = { C: 0, T: 0, X: 0, N: 0 };
+  for (const [key, v] of Object.entries(res.byCat)) {
+    const c = catOf(schemeId, key);
+    const rt = fam && c ? compat(fam, c.fam) : null;
+    totals[rt || 'N'] += v.area;
+  }
+  return { totals, denom: res.mapped || 1, fam, near: fam ? nearestConflict(schemeId, res, fam) : null };
+}
+function nearestConflict(schemeId, res, fam) {
+  let best = null;
+  const siteLines = res.poly ? flatLines(res.poly) : null;
+  for (const p of res.pieces) {
+    if (compat(fam, catOf(schemeId, p.cat)?.fam) !== 'X') continue;
+    if (res.poly ? turf.booleanIntersects(res.poly, p.piece) : turf.booleanPointInPolygon(res.site, p.piece)) return { d: 0, p, c: null };
+    for (const l of flatLines(p.piece)) {
+      if (!res.poly) {
+        const np = turf.nearestPointOnLine(l, res.site, { units: 'kilometers' });
+        const d = np.properties.dist * 1000;
+        if (!best || d < best.d) best = { d, p, c: np.geometry.coordinates };
+      } else {
+        turf.coordEach(l, c => siteLines.forEach(sl => { const d = turf.pointToLineDistance(c, sl, { units: 'meters' }); if (!best || d < best.d) best = { d, p, c: c.slice() }; }));
+      }
+    }
+    if (res.poly) turf.coordEach(res.poly, c => flatLines(p.piece).forEach(l => {
+      const np = turf.nearestPointOnLine(l, c, { units: 'kilometers' }); const d = np.properties.dist * 1000;
+      if (!best || d < best.d) best = { d, p, c: np.geometry.coordinates };
+    }));
+  }
+  return best;
+}
+function compassSample(pieces, site, r) {
   const cells = [];
   const rings = [[0.12, 0.28, 0.44], [0.6, 0.76, 0.92]];
   for (let ring = 0; ring < 2; ring++) for (let s = 0; s < 8; s++) {
@@ -1191,6 +1290,8 @@ map.createPane('context'); map.getPane('context').style.zIndex = 420; map.getPan
 map.createPane('analysis'); map.getPane('analysis').style.zIndex = 410; map.getPane('analysis').style.pointerEvents = 'none';
 const ctxRenderer = L.canvas({ pane: 'context', padding: 0.4 });
 const anaRenderer = L.canvas({ pane: 'analysis', padding: 0.4 });
+map.createPane('batch'); map.getPane('batch').style.zIndex = 430; map.getPane('batch').style.pointerEvents = 'none';
+const batchRenderer = L.svg({ pane: 'batch' });
 map.setView([state.site[1], state.site[0]], 15);
 
 let ctxLayers = null, anaLayer = null, ringLayer = null, noticeLayer = null, siteMarker = null;
@@ -1223,7 +1324,7 @@ function showBase() {
 function restyleAll() {
   ['zoning','op'].forEach(id => { const d = state.data[id]; if (d?.layer) d.layer.setStyle(baseStyle(id)); });
   if (ctxLayers) { map.removeLayer(ctxLayers); buildContext(window.__ctx); }
-  drawAnalysis();
+  drawAnalysis(); drawBatch();
 }
 function buildContext(ctx) {
   if (!ctx) return;
@@ -1246,6 +1347,12 @@ function drawAnalysis() {
       style: f => { const c = catOf(state.scheme, f.properties.cat); return { fillColor: c ? c.color : tok('--unmapped'), fillOpacity: .92, color: tok('--poly-stroke'), weight: .7, opacity: 1 }; }
     }).addTo(map);
   }
+  if (state.siteGeom) {
+    const outer = res?.outer || studyArea(state.site, state.r, state.siteGeom).outer;
+    ringLayer = L.geoJSON(outer, { renderer: ctxRenderer, interactive: false, style: { fill: false, color: tok('--ink'), weight: 2, dashArray: '7 5', opacity: .85 } }).addTo(map);
+    siteMarker = L.geoJSON(state.siteGeom, { renderer: ctxRenderer, interactive: false, style: { color: tok('--accent'), weight: 2.5, fillColor: tok('--accent'), fillOpacity: .25 } }).addTo(map);
+    return;
+  }
   ringLayer = L.circle(ll, { radius: state.r, renderer: ctxRenderer, interactive: false, fill: false, color: tok('--ink'), weight: 2, dashArray: '7 5', opacity: .85 }).addTo(map);
   if (state.r > 140) noticeLayer = L.circle(ll, { radius: 120, renderer: ctxRenderer, interactive: false, fill: false, color: tok('--ink'), weight: 1, dashArray: '2 4', opacity: .7 }).addTo(map);
   siteMarker = L.circleMarker(ll, { radius: 7, renderer: ctxRenderer, interactive: false, color: tok('--panel'), weight: 2.5, fillColor: tok('--accent'), fillOpacity: 1 }).addTo(map);
@@ -1260,9 +1367,10 @@ function schedule(delay = 140) {
   runTimer = setTimeout(run, delay);
 }
 function drawAnalysisRingOnly() {
+  if (state.siteGeom) return;
   const ll = [state.site[1], state.site[0]];
-  if (ringLayer) { ringLayer.setLatLng(ll); ringLayer.setRadius(state.r); }
-  if (siteMarker) siteMarker.setLatLng(ll);
+  if (ringLayer?.setLatLng) { ringLayer.setLatLng(ll); ringLayer.setRadius(state.r); }
+  if (siteMarker?.setLatLng) siteMarker.setLatLng(ll);
 }
 function run() {
   const d = state.data[state.scheme];
@@ -1273,24 +1381,44 @@ function run() {
 }
 
 /* ---------- Panel rendering ---------- */
-function siteDesig(schemeId) {
-  const hit = lookupNear(state.data[schemeId], state.site);
-  if (!hit) return null;
-  const it = hit.it, s = SCHEMES[schemeId], p = it.f.properties || {};
-  return { it, dist: hit.dist, cat: catOf(schemeId, it.cat), text: s.describe(p), detail: s.detail(p) };
+function siteDesigAt(schemeId, site, poly) {
+  const d = state.data[schemeId]; if (!d) return null;
+  const s = SCHEMES[schemeId];
+  let it, dist = 0, share = 1;
+  if (!poly) {
+    const hit = lookupNear(d, site); if (!hit) return null;
+    it = hit.it; dist = hit.dist;
+  } else {
+    // Parcel: the designation covering the largest part of it
+    const pb = turf.bbox(poly), total = turf.area(poly) || 1;
+    let best = 0;
+    for (const x of d.items) {
+      const b = x.bb;
+      if (b[2] < pb[0] || b[0] > pb[2] || b[3] < pb[1] || b[1] > pb[3]) continue;
+      let g = null; try { g = turf.intersect(x.f, poly); } catch (e) {}
+      if (!g) continue;
+      const a = turf.area(g); if (a > best) { best = a; it = x; }
+    }
+    if (!it) return null;
+    share = best / total;
+  }
+  const p = it.f.properties || {};
+  return { it, dist, share, cat: catOf(schemeId, it.cat), text: s.describe(p), detail: s.detail(p) };
 }
+function siteDesig(schemeId) { return siteDesigAt(schemeId, state.site, state.siteGeom); }
 function desigHTML(schemeId, d) {
   if (!d) return `<span class="hint">No ${schemeId === 'zoning' ? 'zone' : 'designation'} within 60 m of this point. Click inside a block.</span>`;
   const c = d.cat;
   const label = schemeId === 'zoning' ? `${esc(d.text)} <small>${c ? esc(c.label) : ''}</small>` : `${esc(c && c.key !== 'other' ? c.label : d.text)}`;
   return `<div class="desig"><span class="sw" style="background:${c ? c.color : 'var(--unmapped)'}"></span><span>${label}</span></div>` +
     (d.detail ? `<div class="bylaw">${esc(d.detail)}</div>` : '') +
-    (d.dist > 0 ? `<div class="hint">Site is on a street; nearest block is about ${Math.max(1, Math.round(d.dist))} m away.</div>` : '');
+    (d.dist > 0 ? `<div class="hint">Site is on a street; nearest block is about ${Math.max(1, Math.round(d.dist))} m away.</div>` : '') +
+    (d.share < 0.98 ? `<div class="hint">Covers ${fmtPct(d.share)} of the parcel (the largest share).</div>` : '');
 }
 function renderPanel() {
   const zs = siteDesig('zoning');
   const os = state.data.op ? siteDesig('op') : null;
-  $('siteCoord').textContent = `${state.site[1].toFixed(5)}, ${state.site[0].toFixed(5)}`;
+  $('siteCoord').textContent = (state.siteName ? state.siteName + ' · ' : '') + `${state.site[1].toFixed(5)}, ${state.site[0].toFixed(5)}`;
 
   let html = `<div class="site-row"><div class="k">Zoning</div><div class="v">${desigHTML('zoning', zs)}</div></div>`;
   html += `<div class="site-row"><div class="k">Official Plan</div><div class="v">${state.data.op ? desigHTML('op', os) + (state.opSource === 'uoft' ? `<div class="hint c-T">U of T 2019 data, unofficial. May not match the current Official Plan.</div>` : '') : state.opLoading ? `<span class="hint">Loading…</span>` : `<span class="hint">No layer loaded. </span><button class="linkbtn" type="button" data-act="loadop">Load OP layer</button>`}</div></div>`;
@@ -1316,15 +1444,15 @@ function renderPanel() {
   $('compSrc').textContent = scheme.name;
   if (!res) { $('comp').innerHTML = ''; $('stack').innerHTML = ''; $('stackLegend').innerHTML = ''; $('compassNotes').innerHTML = ''; $('compass').innerHTML = ''; $('conflictNote').innerHTML = ''; return; }
 
-  $('areaNote').textContent = `${fmtHa(res.circleArea)} in radius`;
+  $('areaNote').textContent = res.poly ? `${fmtHa(res.circleArea)} within ${res.r} m of the parcel` : `${fmtHa(res.circleArea)} in radius`;
 
   // Composition
   const rows = scheme.cats.map(c => ({ c, v: res.byCat[c.key] })).filter(r => r.v).sort((a, b) => b.v.area - a.v.area);
   if (res.byCat[null]) rows.push({ c: { key:null, label:'Unclassified zone', color:'#d4d4cf', fam:null }, v: res.byCat[null] });
-  const totals = { C: 0, T: 0, X: 0, N: 0 };
+  const rated = rate(state.scheme, res, fam);
+  const { totals } = rated;
   let compHTML = rows.map(({ c, v }) => {
     const rt = fam ? compat(fam, c.fam) : null;
-    totals[rt || 'N'] += v.area;
     const pct = v.area / res.circleArea;
     const raw = (c.key === 'other' || c.key === null) && v.raw.size ? `<small>${esc([...v.raw].slice(0, 4).join(', '))}${v.raw.size > 4 ? '…' : ''}</small>` : (c.codes ? `<small>${esc(c.codes)}</small>` : '');
     return `<div class="crow"><span class="sw" style="background:${c.color}"></span>
@@ -1347,18 +1475,14 @@ function renderPanel() {
     : `<p class="hint" style="grid-column:1/-1">The site sits on a street or unclassified land. Pick a proposed use above to rate the surroundings.</p>`;
 
   // Nearest conflict
-  let near = null;
-  if (fam) for (const p of res.pieces) {
-    if (compat(fam, p.cat ? catOf(state.scheme, p.cat)?.fam : null) !== 'X') continue;
-    if (turf.booleanPointInPolygon(state.site, p.piece)) { near = { d: 0, p }; break; }
-    turf.coordEach(p.piece, c => { const dd = metersBetween(state.site, c); if (!near || dd < near.d) near = { d: dd, p, c }; });
-  }
+  const near = rated.near;
+  const nearTxt = near ? (near.d < 1 ? 'adjoining the site' : `about <span class="mono">${Math.round(near.d)} m</span>${res.poly ? ' from the parcel edge' : ''}${near.c ? ' to the ' + dirName(bearing(state.site, near.c)) : ''}`) : '';
   $('conflictNote').innerHTML = !fam ? '' : near
-    ? `<div class="callout bad"><b class="c-X">▲ Nearest potential conflict:</b> ${esc(catOf(state.scheme, near.p.cat).label)}, about <span class="mono">${Math.round(near.d)} m</span>${near.c ? ' to the ' + dirName(bearing(state.site, near.c)) : ''}. Check separation distances (MECP D-6) and any compatibility / mitigation study requirements.</div>`
+    ? `<div class="callout bad"><b class="c-X">▲ Nearest potential conflict:</b> ${esc(catOf(state.scheme, near.p.cat).label)}, ${nearTxt}. Check separation distances (MECP D-6) and any compatibility / mitigation study requirements.</div>`
     : `<div class="callout"><b class="c-C">●</b> No conflicting uses within ${state.r} m of the site.</div>`;
-  state.lastTotals = { totals, denom, fam, near };
+  state.lastTotals = rated;
 
-  renderCompass(res);
+  if (res.compass) renderCompass(res);
 }
 function wedge(r0, r1, a0, a1) {
   const k = Math.PI / 180, p = (r, a) => [r * Math.sin(a * k), -r * Math.cos(a * k)];
@@ -1402,7 +1526,7 @@ function renderLegend() {
   const cats = present ? s.cats.filter(c => present.has(c.key)) : s.cats;
   $('legendList').innerHTML = cats.map(c => `<li><span class="sw" style="background:${c.color}"></span><span>${esc(c.label)}</span>${c.codes ? `<small>${esc(c.codes)}</small>` : ''}</li>`).join('') +
     `<li><span class="sw" style="background:none;border:2px dashed ${tok('--ink')};border-radius:50%;box-shadow:none"></span><span>Study radius</span></li>` +
-    (state.r > 140 ? `<li><span class="sw" style="background:none;border:1px dotted ${tok('--ink')};border-radius:50%;box-shadow:none"></span><span>120 m notice area</span></li>` : '');
+    (state.r > 140 && !state.siteGeom ? `<li><span class="sw" style="background:none;border:1px dotted ${tok('--ink')};border-radius:50%;box-shadow:none"></span><span>120 m notice area</span></li>` : '');
 }
 function setScheme(id) {
   state.scheme = id;
@@ -1412,7 +1536,7 @@ function setScheme(id) {
   $('opLoading').hidden = !(id === 'op' && !state.data.op && state.opLoading);
   $('opNotice').hidden = !(id === 'op' && state.data.op && state.opSource === 'uoft');
   $('opLayerSec').hidden = !(id === 'op' && state.data.op);
-  showBase(); renderLegend(); run();
+  showBase(); renderLegend(); run(); renderBatch(); drawBatch();
 }
 
 /* ---------- OP file loading ---------- */
@@ -1472,7 +1596,7 @@ async function handleOpFile(file) {
     const fc = await parseFile(file);
     await loadOp(fc, file.name);
     idbPut({ name: file.name, field: state.opField, fc });
-    setScheme('op');
+    setScheme('op'); if (state.batch) runBatch();
     const b = turf.bbox(fc);
     if (state.site[0] < b[0] || state.site[0] > b[2] || state.site[1] < b[1] || state.site[1] > b[3]) {
       state.site = turf.center(fc).geometry.coordinates; map.setView([state.site[1], state.site[0]], 15); run();
@@ -1485,7 +1609,8 @@ async function handleOpFile(file) {
 }
 
 /* Bundled OP layer: U of T Map & Data Library reconstruction (2019), loaded after zoning */
-async function loadBundledOp() {
+function loadBundledOp() { return (state.opPromise = loadBundledOpInner()); }
+async function loadBundledOpInner() {
   state.opLoading = true;
   if (state.scheme === 'op') setScheme('op'); else renderPanel();
   try {
@@ -1497,6 +1622,7 @@ async function loadBundledOp() {
   } catch (e) { /* leave the upload card as the fallback */ }
   state.opLoading = false;
   if (state.scheme === 'op') setScheme('op'); else renderPanel();
+  if (state.batch) runBatch();
 }
 
 /* IndexedDB: remember the OP layer in this browser only */
@@ -1511,10 +1637,10 @@ function summaryText() {
   if (!res) return '';
   const zs = siteDesig('zoning'), os = state.data.op ? siteDesig('op') : null;
   const L = [];
-  L.push(`Site: ${state.site[1].toFixed(5)}, ${state.site[0].toFixed(5)}`);
+  L.push(`Site: ${state.siteName ? state.siteName + ', ' : ''}${state.site[1].toFixed(5)}, ${state.site[0].toFixed(5)}${state.siteGeom ? ' (parcel)' : ''}`);
   L.push(`Zoning at site: ${zs ? zs.text + (zs.cat ? ' (' + zs.cat.label + ')' : '') + (zs.detail ? ' — ' + zs.detail : '') : 'none'}`);
   L.push(`Official Plan at site: ${state.data.op ? (os ? (os.cat?.key !== 'other' ? os.cat.label : os.text) : 'none') : 'layer not loaded'}${state.data.op && state.opSource === 'uoft' ? ' (source: U of T Map & Data Library reconstruction of the 2019 OP land use maps; unofficial and may not reflect the current Official Plan)' : ''}`);
-  L.push(`Study radius: ${state.r} m (${fmtHa(res.circleArea)}), measured on ${s.name}`);
+  L.push(`Study radius: ${state.r} m${state.siteGeom ? ' from the parcel edge' : ''} (${fmtHa(res.circleArea)}), measured on ${s.name}`);
   L.push('');
   L.push('Surrounding land use (share of radius area):');
   s.cats.map(c => ({ c, v: res.byCat[c.key] })).filter(r => r.v).sort((a, b) => b.v.area - a.v.area)
@@ -1524,7 +1650,7 @@ function summaryText() {
   if (t?.fam) {
     L.push('');
     L.push(`Compatibility, rated as ${FAM[t.fam]} (share of designated land): compatible ${fmtPct(t.totals.C / t.denom)}, transition ${fmtPct(t.totals.T / t.denom)}, potential conflict ${fmtPct(t.totals.X / t.denom)}.`);
-    if (t.near) L.push(`Nearest potential conflict: ${catOf(state.scheme, t.near.p.cat).label}, about ${Math.round(t.near.d)} m${t.near.c ? ' to the ' + dirName(bearing(state.site, t.near.c)) : ''}.`);
+    if (t.near) L.push(`Nearest potential conflict: ${catOf(state.scheme, t.near.p.cat).label}, ${t.near.d < 1 ? 'adjoining the site' : 'about ' + Math.round(t.near.d) + ' m' + (t.near.c ? ' to the ' + dirName(bearing(state.site, t.near.c)) : '')}.`);
   }
   L.push('');
   L.push('Screening aid only; not a policy determination.');
@@ -1537,6 +1663,268 @@ $('copyBtn').addEventListener('click', () => {
   try { navigator.clipboard.writeText(txt).then(done, fallback); } catch (e) { fallback(); }
 });
 
+/* ---------- Multiple sites ---------- */
+const TORONTO_BB = [-79.66, 43.57, -79.10, 43.87];
+const MAX_SITES = 1000;
+const NAME_KEYS = [/^name$/i, /^site_?name$/i, /^site$/i, /^address$/i, /^addr(ess)?_?full$/i, /^full_?address$/i, /^label$/i, /^title$/i, /^parcel_?name$/i, /^site_?id$/i, /^parcel_?(id|no|number)?$/i, /^pin$/i, /^(id|fid|objectid)$/i, /(name|address)$/i, /_id$/i];
+const RADIUS_KEY = /^(radius|radius_?m|r|buffer|buffer_?m)$/i;
+const LAT_KEY = /^(lat|latitude|y_?lat|lat_?dd|latitude_?dd)$/i, LON_KEY = /^(lon|lng|long|longitude|x_?lon|lon_?dd|longitude_?dd)$/i;
+const Y_KEY = /^(y|northing|y_?coord|ycoord|point_?y)$/i, X_KEY = /^(x|easting|x_?coord|xcoord|point_?x)$/i;
+const normKey = k => String(k).trim().replace(/[\s.-]+/g, '_');   // "Site Name" -> Site_Name
+const pickKey = (keys, res) => { for (const re of res) { const k = keys.find(k => re.test(normKey(k))); if (k) return k; } return null; };
+const num = v => { if (v == null) return NaN; const t = String(v).trim().replace(/\s/g, ''); return t === '' ? NaN : Number(t.replace(/,(?=\d+$)/, '.')); };
+
+function parseCSV(text) {
+  text = text.replace(/^﻿/, '');
+  const first = text.split(/\r?\n/, 1)[0];
+  const delim = [',', ';', '\t'].sort((a, b) => first.split(b).length - first.split(a).length)[0];
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === delim) { row.push(f); f = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; }
+    else f += ch;
+  }
+  if (f !== '' || row.length) { row.push(f); rows.push(row); }
+  return rows.filter(r => r.some(c => c.trim() !== ''));
+}
+// Returns { fc, skipped[] } with one Feature per CSV row (Point), properties = the row
+function csvToFeatures(text) {
+  const rows = parseCSV(text);
+  if (rows.length < 2) throw new Error('The CSV has no data rows.');
+  const head = rows[0].map(h => h.trim());
+  let ky = pickKey(head, [LAT_KEY]), kx = pickKey(head, [LON_KEY]);
+  if (!ky || !kx) { ky = pickKey(head, [Y_KEY]); kx = pickKey(head, [X_KEY]); }
+  if (!ky || !kx) throw new Error(`No coordinate columns found. Name them latitude and longitude (or x and y). Columns in this file: ${head.join(', ')}.`);
+  const iy = head.indexOf(ky), ix = head.indexOf(kx);
+  const features = [], skipped = [];
+  rows.slice(1).forEach((r, n) => {
+    const props = {}; head.forEach((h, i) => props[h] = (r[i] ?? '').trim());
+    let y = num(r[iy]), x = num(r[ix]);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) { skipped.push(`Row ${n + 2}: missing or unreadable coordinates`); return; }
+    if (Math.abs(x) <= 180 && Math.abs(y) <= 180 && y < -60 && x > 40) [x, y] = [y, x];   // latitude and longitude swapped
+    props.__row = n + 2;
+    features.push({ type: 'Feature', properties: props, geometry: { type: 'Point', coordinates: [x, y] } });
+  });
+  return { fc: { type: 'FeatureCollection', features }, skipped };
+}
+async function readSitesFile(file) {
+  const name = file.name.toLowerCase();
+  let fc, skipped = [];
+  if (name.endsWith('.csv') || name.endsWith('.txt')) ({ fc, skipped } = csvToFeatures(await file.text()));
+  else if (name.endsWith('.zip')) {
+    let gj = await shp(await file.arrayBuffer());
+    fc = { type: 'FeatureCollection', features: (Array.isArray(gj) ? gj : [gj]).flatMap(g => g.features) };
+  } else {
+    let gj = JSON.parse(await file.text());
+    if (gj.type === 'Feature') gj = { type: 'FeatureCollection', features: [gj] };
+    if (gj.type !== 'FeatureCollection') throw new Error('The file is not a GeoJSON FeatureCollection, a zipped Shapefile or a CSV.');
+    fc = gj;
+  }
+  fc.features = fc.features.filter(f => f && f.geometry);
+  if (!fc.features.length) throw new Error('No sites with coordinates were found in the file.');
+  reprojectIfNeeded(fc);
+  const keys = Object.keys(fc.features[0].properties || {}).filter(k => k !== '__row');
+  const kName = pickKey(keys, NAME_KEYS), kR = keys.find(k => RADIUS_KEY.test(normKey(k)));
+  const sites = [];
+  fc.features.forEach((f, i) => {
+    const p = f.properties || {}, ref = p.__row ? `Row ${p.__row}` : `Feature ${i + 1}`;
+    const g = f.geometry; let poly = null, site;
+    if (g.type === 'Point') site = g.coordinates.slice(0, 2);
+    else if (g.type === 'MultiPoint') site = g.coordinates[0].slice(0, 2);
+    else if (/Polygon/.test(g.type)) { poly = { type: 'Feature', properties: {}, geometry: g }; site = turf.pointOnFeature(poly).geometry.coordinates; }
+    else { skipped.push(`${ref}: ${g.type} geometry is not supported (use points or polygons)`); return; }
+    if (site[0] < TORONTO_BB[0] || site[0] > TORONTO_BB[2] || site[1] < TORONTO_BB[1] || site[1] > TORONTO_BB[3]) { skipped.push(`${ref}: outside the City of Toronto (${site[1].toFixed(4)}, ${site[0].toFixed(4)})`); return; }
+    const rr = kR ? Math.round(num(p[kR])) : NaN;
+    const name = (kName && String(p[kName] ?? '').trim()) || `Site ${sites.length + 1}`;
+    sites.push({ i: sites.length, name, site, poly, r: Number.isFinite(rr) && rr >= 25 && rr <= 3000 ? rr : null, res: {} });
+  });
+  if (!sites.length) throw new Error('None of the sites could be used. ' + skipped.slice(0, 3).join('; '));
+  if (sites.length > MAX_SITES) throw new Error(`The file has ${sites.length} sites. The limit is ${MAX_SITES}; split it into smaller files.`);
+  return { sites, skipped, file: file.name, hasR: sites.some(s => s.r) };
+}
+
+let batchToken = 0, batchLayer = null, batchTimer = null;
+async function loadBatchFile(file) {
+  $('batchErr').hidden = true;
+  try {
+    const b = await readSitesFile(file);
+    state.batch = { ...b, sel: null, sort: { key: 'conflict', dir: -1 }, done: 0 };
+    $('batchBody').hidden = false; $('batchIntro').hidden = true; $('batchPick').textContent = 'Upload other sites';
+    const all = turf.featureCollection(b.sites.map(s => s.poly || turf.point(s.site)));
+    const bb = turf.bbox(all);
+    map.fitBounds([[bb[1], bb[0]], [bb[3], bb[2]]], { padding: [60, 60], maxZoom: 16 });
+    await runBatch();
+  } catch (e) {
+    $('batchErr').textContent = e.message || 'The file could not be read.';
+    $('batchErr').hidden = false;
+  }
+}
+async function runBatch() {
+  const B = state.batch; if (!B) return;
+  const token = ++batchToken;
+  if (state.opLoading && state.opPromise) await state.opPromise;
+  if (token !== batchToken) return;
+  const bar = $('batchProgress'); bar.hidden = false;
+  B.done = 0; renderBatch();
+  const t0 = performance.now();
+  for (const s of B.sites) {
+    const r = s.r || state.r;
+    s.rUsed = r;
+    for (const sid of ['zoning', 'op']) {
+      if (!state.data[sid]) { s.res[sid] = null; continue; }
+      const res = analyze(sid, { site: s.site, r, poly: s.poly, compass: false });
+      const des = siteDesigAt(sid, s.site, s.poly);
+      const fam = des?.cat?.fam || null;
+      const rt = rate(sid, res, fam);
+      s.res[sid] = {
+        text: des ? des.text : null, detail: des?.detail || null, label: des?.cat ? (des.cat.key === 'other' ? des.text : des.cat.label) : null,
+        color: des?.cat?.color || null, fam, share: des?.share ?? null,
+        C: rt.totals.C / rt.denom, T: rt.totals.T / rt.denom, X: rt.totals.X / rt.denom,
+        near: rt.near ? { d: rt.near.d, label: catOf(sid, rt.near.p.cat).label, dir: rt.near.c ? dirName(bearing(s.site, rt.near.c)) : null } : null,
+        area: res.circleArea
+      };
+    }
+    const z = s.res.zoning, o = s.res.op;
+    s.match = z?.fam && o?.fam ? (z.fam === o.fam ? 'same' : 'differ') : null;
+    B.done++;
+    if (B.done % 4 === 0 || performance.now() - t0 > 250) {
+      bar.firstElementChild.style.width = (B.done / B.sites.length * 100).toFixed(1) + '%';
+      $('batchMeta').textContent = `Measuring ${B.done} of ${B.sites.length}…`;
+      await new Promise(r => setTimeout(r));
+      if (token !== batchToken) return;
+    }
+  }
+  bar.hidden = true;
+  renderBatch(); drawBatch();
+}
+function batchRadiusChanged() {
+  if (!state.batch || state.batch.sites.every(s => s.r)) return;
+  clearTimeout(batchTimer); batchTimer = setTimeout(runBatch, 500);
+}
+const sevOf = r => !r || !r.fam ? 'N' : r.X > 0 ? 'X' : r.T > 0 ? 'T' : 'C';
+function sortedSites() {
+  const B = state.batch, k = B.sort.key, dir = B.sort.dir, sid = state.scheme;
+  const val = s => {
+    const r = s.res[sid];
+    if (k === 'name') return s.name.toLowerCase();
+    if (k === 'conflict') return r?.fam ? r.X : -1;
+    if (k === 'near') return r?.near ? r.near.d : Infinity;
+    if (k === 'match') return s.match === 'differ' ? 1 : 0;
+    return s.i;
+  };
+  return [...B.sites].sort((a, b) => { const va = val(a), vb = val(b); return (va < vb ? -1 : va > vb ? 1 : a.i - b.i) * (k === 'near' ? -dir : dir); });
+}
+function renderBatch() {
+  const B = state.batch;
+  if (!B) return;
+  const sid = state.scheme, done = B.done === B.sites.length;
+  const n = B.sites.length;
+  const conflicts = B.sites.filter(s => s.res[sid]?.near).length;
+  const differ = B.sites.filter(s => s.match === 'differ').length;
+  $('batchMeta').textContent = done ? `${n} site${n === 1 ? '' : 's'} from ${B.file}` : `Measuring ${B.done} of ${n}…`;
+  $('batchSum').innerHTML = !done ? '' :
+    `<span><b class="c-X">${conflicts}</b> with a potential conflict on the ${esc(SCHEMES[sid].short.toLowerCase())} map</span>` +
+    (state.data.op ? `<span><b class="c-T">${differ}</b> where zoning and the OP differ</span>` : '');
+  const sk = $('batchSkip');
+  sk.hidden = !B.skipped.length;
+  if (B.skipped.length) {
+    sk.querySelector('summary').textContent = `${B.skipped.length} row${B.skipped.length === 1 ? '' : 's'} skipped`;
+    sk.querySelector('ul').innerHTML = B.skipped.map(x => `<li>${esc(x)}</li>`).join('');
+  }
+  const th = (key, label, cls = '') => `<th scope="col" class="${cls}"${B.sort.key === key ? ` aria-sort="${B.sort.dir > 0 ? 'ascending' : 'descending'}"` : ''}><button type="button" data-sort="${key}">${label}</button></th>`;
+  const lu = (r, which) => r?.label ? `<div class="lu"><span class="sw" style="background:${r.color || 'var(--unmapped)'}"></span><span>${esc(which === 'zoning' && r.text ? r.text : r.label)}</span></div>` : '<span class="hint">—</span>';
+  const otherId = sid === 'zoning' ? 'op' : 'zoning';
+  const rows = done ? sortedSites().map(s => {
+    const r = s.res[sid], other = s.res[sid === 'zoning' ? 'op' : 'zoning'], sev = sevOf(r);
+    const pct = r?.fam ? `<span class="pill ${sev}">${fmtPct(r.X)}</span>` : '<span class="pill N">n/a</span>';
+    const near = !r?.fam ? '—' : r.near ? (r.near.d < 1 ? 'adjoins' : Math.round(r.near.d) + ' m') : 'none';
+    return `<tr data-i="${s.i}" tabindex="0"${B.sel === s.i ? ' class="sel"' : ''}>
+      <td class="nm">${esc(s.name)}${s.poly ? ' <span class="hint">(parcel)</span>' : ''}</td>
+      <td><div class="two">${lu(r, sid)}${lu(other, otherId)}${s.match === 'differ' ? '<span class="mm">▲ differ</span>' : ''}</div></td>
+      <td class="num">${pct}</td>
+      <td class="num">${near}</td></tr>`;
+  }).join('') : '';
+  $('batchTbl').innerHTML = `<thead><tr>${th('name', 'Site')}${th('match', sid === 'zoning' ? 'Zone / OP' : 'OP / Zone')}${th('conflict', 'Conflict', 'num')}${th('near', 'Gap', 'num')}</tr></thead><tbody>${rows}</tbody>`;
+  $('batchHint').textContent = done ? `Conflict is the share of designated land around each site that conflicts with the site's own ${sid === 'zoning' ? 'zone' : 'designation'}. Radius: ${B.hasR ? 'from the file where given, otherwise ' : ''}${state.r} m${B.sites.some(s => s.poly) ? ', measured from the parcel edge for parcels' : ''}. Gap is the distance to the nearest conflicting use. Select a site to open its full analysis.` : '';
+  $('batchCsv').disabled = !done;
+}
+function drawBatch() {
+  if (batchLayer) { map.removeLayer(batchLayer); batchLayer = null; }
+  const B = state.batch; if (!B || B.done !== B.sites.length) return;
+  const sid = state.scheme, g = L.layerGroup();
+  const col = sev => tok(sev === 'X' ? '--bad' : sev === 'T' ? '--warn' : sev === 'C' ? '--ok' : '--muted');
+  for (const s of B.sites) {
+    const sev = sevOf(s.res[sid]), c = col(sev), sel = B.sel === s.i;
+    const onClick = e => { L.DomEvent.stopPropagation(e); selectBatch(s.i); };
+    if (s.poly) L.geoJSON(s.poly, { renderer: batchRenderer, style: { color: c, weight: sel ? 3.5 : 2, fill: true, fillOpacity: .08, fillColor: c } }).on('click', onClick).addTo(g);
+    L.circleMarker([s.site[1], s.site[0]], { renderer: batchRenderer, radius: sel ? 9 : 6, color: tok('--panel'), weight: 2, fillColor: c, fillOpacity: 1 })
+      .bindTooltip(`<b>${esc(s.name)}</b><br>${sev === 'X' ? 'Potential conflict' : sev === 'T' ? 'Transition only' : sev === 'C' ? 'No conflict' : 'Not rated'}`, { direction: 'top', offset: [0, -6] })
+      .on('click', onClick).addTo(g);
+  }
+  batchLayer = g.addTo(map);
+}
+function selectBatch(i) {
+  const B = state.batch, s = B.sites[i]; if (!s) return;
+  B.sel = i;
+  state.site = s.site.slice(); state.siteGeom = s.poly; state.siteName = s.name; state.evalFam = null;
+  if (s.r) { state.r = s.r; syncRadiusUI(); }
+  renderLegend();
+  fitRadius(); schedule(0); renderBatch(); drawBatch();
+}
+function clearSiteSel() {
+  state.siteGeom = null; state.siteName = null; renderLegend();
+  if (state.batch && state.batch.sel != null) { state.batch.sel = null; renderBatch(); drawBatch(); }
+}
+const csvCell = v => { const t = v == null ? '' : String(v); return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+function downloadText(name, text, type) {
+  const url = URL.createObjectURL(new Blob(['﻿' + text], { type }));
+  const a = Object.assign(document.createElement('a'), { href: url, download: name });
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+function batchCsv() {
+  const B = state.batch; if (!B) return;
+  const pct = v => v == null ? '' : (v * 100).toFixed(1);
+  const cols = ['site', 'latitude', 'longitude', 'geometry', 'radius_m',
+    'zone', 'zone_string', 'zone_category', 'zone_compatible_pct', 'zone_transition_pct', 'zone_conflict_pct', 'zone_nearest_conflict', 'zone_nearest_conflict_m', 'zone_nearest_conflict_direction',
+    'op_designation', 'op_source', 'op_compatible_pct', 'op_transition_pct', 'op_conflict_pct', 'op_nearest_conflict', 'op_nearest_conflict_m', 'op_nearest_conflict_direction',
+    'zoning_vs_op'];
+  const lines = [cols.join(',')];
+  for (const s of B.sites) {
+    const z = s.res.zoning || {}, o = s.res.op || {};
+    const part = r => [pct(r.fam ? r.C : null), pct(r.fam ? r.T : null), pct(r.fam ? r.X : null), r.fam ? (r.near ? r.near.label : 'none') : 'not rated', r.near ? Math.round(r.near.d) : '', r.near?.dir || ''];
+    const row = [s.name, s.site[1].toFixed(6), s.site[0].toFixed(6), s.poly ? 'parcel' : 'point', s.rUsed,
+      z.text || '', z.detail || '', z.label || '', ...part(z),
+      o.label || '', state.data.op ? (state.opSource === 'uoft' ? 'U of T MDL 2019 (unofficial, may be out of date)' : 'user file: ' + state.opName) : 'not loaded', ...part(o),
+      s.match || ''];
+    lines.push(row.map(csvCell).join(','));
+  }
+  downloadText('land-use-compatibility-results.csv', lines.join('\r\n'), 'text/csv;charset=utf-8');
+}
+$('batchPick').addEventListener('click', () => $('batchInput').click());
+$('batchInput').addEventListener('change', e => { const f = e.target.files[0]; if (f) loadBatchFile(f); e.target.value = ''; });
+$('batchTemplate').addEventListener('click', () => downloadText('sites-template.csv',
+  'name,latitude,longitude,radius_m\r\nKeele & St Clair,43.67134,-79.46593,300\r\nJane & Weston,43.69254,-79.50027,\r\nYonge & Eglinton,43.70675,-79.39836,500\r\n', 'text/csv;charset=utf-8'));
+$('batchCsv').addEventListener('click', batchCsv);
+$('batchClear').addEventListener('click', () => {
+  batchToken++; state.batch = null; clearSiteSel(); drawBatch();
+  $('batchBody').hidden = true; $('batchIntro').hidden = false; $('batchMeta').textContent = ''; $('batchPick').textContent = 'Upload sites';
+  run();
+});
+$('batchTbl').addEventListener('click', e => {
+  const sb = e.target.closest('[data-sort]');
+  if (sb) { const B = state.batch, k = sb.dataset.sort; B.sort = { key: k, dir: B.sort.key === k ? -B.sort.dir : (k === 'name' ? 1 : -1) }; renderBatch(); return; }
+  const tr = e.target.closest('tr[data-i]'); if (tr) selectBatch(+tr.dataset.i);
+});
+$('batchTbl').addEventListener('keydown', e => { const tr = e.target.closest('tr[data-i]'); if (tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); selectBatch(+tr.dataset.i); } });
+const bsec = $('batchSec');
+['dragenter', 'dragover'].forEach(t => bsec.addEventListener(t, e => { if ([...(e.dataTransfer?.types || [])].includes('Files')) { e.preventDefault(); bsec.classList.add('over'); } }));
+['dragleave', 'drop'].forEach(t => bsec.addEventListener(t, e => { e.preventDefault(); bsec.classList.remove('over'); }));
+bsec.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) loadBatchFile(f); });
+
 /* ---------- Wiring ---------- */
 $('chips').innerHTML = RADII.map(r => `<button type="button" class="chip" data-r="${r.m}" aria-pressed="false"><b>${r.m} m</b>${r.note ? `<small>${r.note}</small>` : ''}</button>`).join('');
 function syncRadiusUI() {
@@ -1544,8 +1932,8 @@ function syncRadiusUI() {
   $('radiusVal').innerHTML = `${state.r}<span>m</span>`;
   document.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', +b.dataset.r === state.r));
 }
-$('radius').addEventListener('input', e => { state.r = +e.target.value; syncRadiusUI(); renderLegend(); schedule(); });
-$('chips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; state.r = +b.dataset.r; syncRadiusUI(); renderLegend(); fitRadius(); schedule(0); });
+$('radius').addEventListener('input', e => { state.r = +e.target.value; syncRadiusUI(); renderLegend(); schedule(); batchRadiusChanged(); });
+$('chips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; state.r = +b.dataset.r; syncRadiusUI(); renderLegend(); fitRadius(); batchRadiusChanged(); schedule(0); });
 $('evalAs').addEventListener('change', e => { state.evalFam = e.target.value || null; renderPanel(); });
 $('tZoning').addEventListener('click', () => setScheme('zoning'));
 $('tOp').addEventListener('click', () => setScheme('op'));
@@ -1559,20 +1947,21 @@ drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) h
 $('opReplace').addEventListener('click', () => $('opInput').click());
 $('opRemove').addEventListener('click', () => { if (state.data.op?.layer) map.removeLayer(state.data.op.layer); state.data.op = null; state.opSource = null; idbDel(); setScheme('op'); loadBundledOp(); });
 $('opField').addEventListener('change', e => {
-  state.opField = e.target.value; reclassify('op'); buildBase('op'); showBase(); renderLegend(); run();
+  state.opField = e.target.value; reclassify('op'); buildBase('op'); showBase(); renderLegend(); run(); if (state.batch) runBatch();
   idbGet().then(v => v && idbPut({ ...v, field: state.opField }));
 });
 $('preset').innerHTML = `<option value="">Jump to an example site…</option>` + PRESETS.map((p, i) => `<option value="${i}">${p.name}</option>`).join('');
 $('preset').addEventListener('change', e => {
   const p = PRESETS[+e.target.value]; if (!p) return;
-  state.site = [p.ll[1], p.ll[0]]; state.evalFam = null; fitRadius(); schedule(0);
+  clearSiteSel(); state.site = [p.ll[1], p.ll[0]]; state.evalFam = null; fitRadius(); schedule(0);
   e.target.value = '';
 });
 function fitRadius() {
-  const c = turf.circle(state.site, state.r / 1000, { steps: 16, units: 'kilometers' }), b = turf.bbox(c);
-  map.fitBounds([[b[1], b[0]], [b[3], b[2]]], { padding: [40, 40], maxZoom: 17 });
+  const base = state.siteGeom || turf.point(state.site), b = turf.bbox(base);
+  const dy = state.r / 111320, dx = state.r / (111320 * Math.cos(state.site[1] * Math.PI / 180));
+  map.fitBounds([[b[1] - dy, b[0] - dx], [b[3] + dy, b[2] + dx]], { padding: [40, 40], maxZoom: 17 });
 }
-map.on('click', e => { state.site = [e.latlng.lng, e.latlng.lat]; state.evalFam = null; schedule(0); });
+map.on('click', e => { clearSiteSel(); state.site = [e.latlng.lng, e.latlng.lat]; state.evalFam = null; schedule(0); });
 
 // Theme changes: canvas layers need their colors re-read from tokens
 const mq = matchMedia('(prefers-color-scheme: dark)');
