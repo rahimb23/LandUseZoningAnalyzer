@@ -4,14 +4,17 @@ A browser tool for screening land use compatibility around a site in the City of
 
 It has two separate maps, because zoning and the Official Plan often disagree:
 
-- **Zoning:** City of Toronto Zoning By-law 569-2013. This layer ships with the repo.
-- **Official Plan:** land use designations (Maps 13 to 23). You load this layer from your own file (see below).
+- **Zoning:** City of Toronto Zoning By-law 569-2013, from City of Toronto Open Data.
+- **Official Plan:** land use designations from the University of Toronto Map & Data Library (see the disclaimer below). You can replace this layer with your own file.
 
-When both layers are loaded, the site panel shows the zone and the OP designation side by side and flags a mismatch.
+The site panel shows the zone and the OP designation side by side and flags a mismatch.
+
+> **Disclaimer: the Official Plan layer is unofficial and out of date.** The City does not publish its OP land use designations as open data. The bundled layer is the U of T Map & Data Library's *Toronto Land Use Spatial Data, parcel-level (2019–2021)*. It reconstructs the City's 2019 land use maps (Maps 13 to 23) on November 2021 property boundaries, using image classification. It does not include Official Plan amendments made since 2019, may misclassify some parcels, and has no Utility Corridors class. Always confirm designations against the City's current [Official Plan maps](https://www.toronto.ca/city-government/planning-development/official-plan-guidelines/official-plan/official-plan-maps-copy/). The tool shows this warning whenever the U of T layer is on screen.
 
 ## Features
 
 - Click anywhere to place a site, or jump to an example site.
+- Open the tool on a specific site from a link: `?site=43.672,-79.466&r=300` (latitude, longitude, radius in metres).
 - Radius from 50 to 1,500 m, with presets for 120 m (Planning Act notice), 400 m (5-minute walk) and 800 m (MTSA / 10-minute walk).
 - Area in hectares and share of the radius for each land use category. Streets, rail and water are reported separately because they carry no designation.
 - A compatibility screen that rates each surrounding use as Compatible, Transition or Conflict. It rates against the use at the site, or against a proposed use you choose.
@@ -29,16 +32,16 @@ python3 -m http.server 8000
 
 Then open http://localhost:8000. The page also works on GitHub Pages: enable Pages for the `main` branch, root folder.
 
-## Loading the Official Plan layer
+## Using your own Official Plan layer
 
-The City does not publish the OP land use designations as open data or as a public web service. If you have the layer, switch to the Official Plan map and drop in one of these:
+If you have a current copy of the OP land use designations, for example from City Planning, switch to the Official Plan map and choose **Load your own file**. The tool accepts:
 
 - a zipped Shapefile (`.zip` containing `.shp`, `.dbf` and `.prj`), or
 - a GeoJSON file.
 
-Coordinates in WGS84, NAD83 MTM zone 10 (EPSG:2952 / 2019) or UTM zone 17N are detected and reprojected. The tool picks the attribute field whose values best match the designation names, such as Neighbourhoods, Apartment Neighbourhoods, Mixed Use Areas and Core Employment Areas. You can change the field in the panel. Values that don't match any known designation are grouped as "Other / unmatched" and are not rated.
+Coordinates in WGS84, NAD83 MTM zone 10 (EPSG:2952 / 2019) or UTM zone 17N are detected and reprojected. The tool picks the attribute field whose values best match the designation names, such as Neighbourhoods, Apartment Neighbourhoods, Mixed Use Areas and Core Employment Areas, whatever the spacing or capitals. You can change the field in the panel. Values that don't match a known designation are grouped as "Other / unmatched" and are not rated.
 
-The file is stored only in your browser (IndexedDB), so it is still there the next time you open the page. It is never uploaded.
+Your file replaces the U of T layer and is stored only in your browser (IndexedDB), so it is still there the next time you open the page. It is never uploaded. **Go back to U of T data** removes it.
 
 ## Compatibility ratings
 
@@ -49,12 +52,20 @@ Every category maps to one of ten land use families. A symmetric matrix in `inde
 | File | Source | Notes |
 | --- | --- | --- |
 | `data/zoning.json` | [COTGEO_ZBL_ZONE](https://services3.arcgis.com/b9WvedVPoizGfvfD/arcgis/rest/services/COTGEO_ZBL_ZONE/FeatureServer) | 11,892 zone polygons, simplified. Lands still under former municipal by-laws are not in this layer. |
+| `data/op_uoft.json` | [Toronto Land Use Spatial Data, parcel-level (2019–2021)](https://doi.org/10.5683/SP3/1VMJAG), University of Toronto Map & Data Library | 21,732 polygons, simplified to 1.5 m. **CC BY-NC 4.0: non-commercial use only, with attribution.** Unofficial; see the disclaimer above. |
 | `data/context.json` | City of Toronto GIS (`gis.toronto.ca`): major centreline, shoreline, TTC rapid transit routes | Drawn for orientation only. |
 
-All of these come from City of Toronto Open Data under the Open Government Licence – Toronto. To refresh them, run:
+The zoning and context files come from City of Toronto Open Data under the Open Government Licence – Toronto. To refresh them, run:
 
 ```bash
 python3 scripts/fetch_data.py
+```
+
+To rebuild the Official Plan file from the U of T download, run:
+
+```bash
+pip install pyshp shapely pyproj
+python3 scripts/build_op_uoft.py
 ```
 
 ## Libraries
