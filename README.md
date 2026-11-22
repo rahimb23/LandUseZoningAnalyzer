@@ -1,4 +1,4 @@
-# Land Use Zoning Analyzer
+# Land Use Compatibility Analysis
 
 A browser tool for screening land use compatibility around a site in the City of Toronto. Place a site on the map, set a study radius, and the tool clips every land use polygon to that circle. It then reports what surrounds the site and how compatible those uses are with the site.
 
