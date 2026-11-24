@@ -33,6 +33,14 @@ python3 -m http.server 8000
 
 Then open http://localhost:8000. The page also works on GitHub Pages: enable Pages for the `main` branch, root folder.
 
+## Experimental layout
+
+`lab/` holds an experimental version with a full-screen map, frosted-glass panels you open and close from an icon rail, and a live readout of the site, radius and conflict share. It uses the same analysis code and data as the main page. It is generated from `index.html`, so after changing the main page, run:
+
+```bash
+python3 scripts/build_lab.py
+```
+
 ## Assessing multiple sites
 
 Under **Multiple sites**, choose **Upload sites** (or drop a file on that section). The tool accepts up to 1,000 sites in one of these formats:
